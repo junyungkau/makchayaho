@@ -41,15 +41,27 @@ export default function Home() {
 
   // 2) 위치 기준 주변 정류장 불러오기 (프록시 호출)
   const loadNearby = useCallback(async (c) => {
+    // 정류장 나올 때까지 반경을 점점 넓혀가며 검색 (도시=좁게, 외곽=넓게)
+    const radiuses = [500, 1000, 2000];
     try {
-      const r = await fetch(`/api/nearby?lng=${c.lng}&lat=${c.lat}&radius=500`);
-      const d = await r.json();
-      if (d.stations) {
-        setStations(d.stations);
-        setIsMock(!!d.mock);
-        setStatus("");
-      } else {
-        setStatus("주변 정류장 못 불러왔어ㅠ: " + (d.error || d.message || "?"));
+      for (const radius of radiuses) {
+        const r = await fetch(
+          `/api/nearby?lng=${c.lng}&lat=${c.lat}&radius=${radius}`
+        );
+        const d = await r.json();
+        if (d.stations && d.stations.length > 0) {
+          setStations(d.stations);
+          setIsMock(!!d.mock);
+          setStatus("");
+          return; // 찾았으면 종료
+        }
+        // 이번 반경에서 못 찾으면 다음(더 넓은) 반경으로
+        if (radius === radiuses[radiuses.length - 1]) {
+          // 마지막까지 못 찾음
+          setStations(d.stations || []);
+          setIsMock(!!d.mock);
+          setStatus("주변에 정류장이 없어ㅠ 좀 걸어야 할지도…🥲");
+        }
       }
     } catch (e) {
       setStatus("네트워크 삐끗ㅠ: " + String(e));
