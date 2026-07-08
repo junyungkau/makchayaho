@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { lineColor } from "../lib/line-colors";
 
+// ========================================================
 // KakaoMap — 카카오맵 + 내 위치 + 정류장 마커
+// props:
+//   center: {lat, lng}
+//   stations: [{id, name, class, x, y}]
+//   onStationClick: (station) => void
+// ========================================================
+
 export default function KakaoMap({ center, stations = [], onStationClick }) {
   const mapRef = useRef(null);
   const mapObj = useRef(null);
   const markersRef = useRef([]);
-  const [mapReady, setMapReady] = useState(false);
+  const [mapReady, setMapReady] = useState(false); // ★ 지도 준비 상태
 
   // 1) 카카오 SDK 로드 + 지도 생성
   useEffect(() => {
@@ -24,6 +32,7 @@ export default function KakaoMap({ center, stations = [], onStationClick }) {
         };
         mapObj.current = new window.kakao.maps.Map(mapRef.current, options);
 
+        // 내 위치 마커
         const myPos = new window.kakao.maps.LatLng(center.lat, center.lng);
         new window.kakao.maps.Marker({
           position: myPos,
@@ -37,7 +46,7 @@ export default function KakaoMap({ center, stations = [], onStationClick }) {
           ),
         });
 
-        setMapReady(true);
+        setMapReady(true); // ★ 지도 준비 완료 알림
       });
     };
 
@@ -57,12 +66,13 @@ export default function KakaoMap({ center, stations = [], onStationClick }) {
   useEffect(() => {
     if (!mapReady || !mapObj.current || !window.kakao) return;
 
+    // 기존 마커 제거
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
     stations.forEach((s) => {
       const pos = new window.kakao.maps.LatLng(s.y, s.x);
-      const color = s.class === 1 ? "#ff6ec7" : "#ffd93d";
+      const color = s.class === 1 ? lineColor(s.line) : "#ffd93d"; // 지하철=호선색, 버스=노랑
       const marker = new window.kakao.maps.Marker({
         position: pos,
         map: mapObj.current,
@@ -79,7 +89,7 @@ export default function KakaoMap({ center, stations = [], onStationClick }) {
       });
       markersRef.current.push(marker);
     });
-  }, [stations, onStationClick, mapReady]);
+  }, [stations, onStationClick, mapReady]); // ★ mapReady 의존성 추가
 
   return <div ref={mapRef} style={{ width: "100%", height: "100%" }} />;
 }

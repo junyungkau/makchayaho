@@ -1,9 +1,27 @@
 import { useEffect, useState } from "react";
+import { lineColor } from "../lib/line-colors";
 
 // ========================================================
 // StationCard — 마커 클릭 시 하단에 뜨는 정보 카드 (갸루 ver.)
 // 지하철이면 막차 시간, 버스면 도착/막차 정보를 프록시에서 가져옴
 // ========================================================
+
+// 막차 시간("00:54")까지 지금부터 몇 분 남았는지.
+// 막차는 밤~새벽이므로, 이미 지난 시각이면 자정 넘긴 것으로 봄.
+function minutesUntil(hhmm) {
+  if (!hhmm || !hhmm.includes(":")) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  // 막차가 새벽(0~3시)인데 지금이 낮/저녁이면 → 내일 새벽
+  if (h < 4 && now.getHours() >= 4) {
+    target.setDate(target.getDate() + 1);
+  }
+  // 막차가 밤(20~23시)인데 이미 지났으면 → 이미 끊김(음수)
+  const diff = Math.round((target - now) / 60000);
+  return diff;
+}
 
 export default function StationCard({ station, onClose }) {
   const [loading, setLoading] = useState(true);
@@ -38,6 +56,14 @@ export default function StationCard({ station, onClose }) {
           <span className={`tag ${isSubway ? "subway" : "bus"}`}>
             {isSubway ? "🚇 지하철" : "🚌 버스"}
           </span>
+          {isSubway && station.line && (
+            <span
+              className="line-badge"
+              style={{ background: lineColor(station.line) }}
+            >
+              {station.line}
+            </span>
+          )}
           <h2>{station.name}</h2>
         </div>
         <button className="close" onClick={onClose} aria-label="닫기">
@@ -55,15 +81,30 @@ export default function StationCard({ station, onClose }) {
         {/* 지하철 막차 */}
         {!loading && isSubway && info?.lastTrains && (
           <>
-            <p className="lead">막차 놓치면 택시비 폭탄이야~ 🏃‍♀️💨</p>
+            <p className="lead">🌙 오늘 막차 · 놓치면 택시비 폭탄이야~ 🏃‍♀️💨</p>
             <ul className="list">
-              {info.lastTrains.map((t, i) => (
-                <li key={i}>
-                  <span className="line">{t.line}</span>
-                  <span className="dir">{t.direction}</span>
-                  <span className="time">{t.time}</span>
-                </li>
-              ))}
+              {info.lastTrains.map((t, i) => {
+                const left = minutesUntil(t.time);
+                return (
+                  <li
+                    key={i}
+                    className="train-item"
+                    style={{
+                      borderLeft: `4px solid ${lineColor(station.line)}`,
+                    }}
+                  >
+                    <div className="train-main">
+                      <span className="dir">{t.direction}</span>
+                      <span className="time">{t.time}</span>
+                    </div>
+                    {left != null && (
+                      <div className="left-time">
+                        {left > 0 ? `${left}분 남았어!` : "끊겼어ㅠ"}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
@@ -150,6 +191,15 @@ export default function StationCard({ station, onClose }) {
           background: linear-gradient(135deg, #ffb84d, #ff6ec7);
           color: #fff;
         }
+        .line-badge {
+          font-size: 12px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-weight: 800;
+          color: #fff;
+          margin-left: 6px;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
         .close {
           background: rgba(255, 110, 199, 0.2);
           border: none;
@@ -180,6 +230,26 @@ export default function StationCard({ station, onClose }) {
           gap: 12px;
           padding: 14px 0;
           border-bottom: 1px solid rgba(255, 110, 199, 0.2);
+        }
+        .train-item {
+          flex-direction: column;
+          align-items: stretch !important;
+          gap: 4px !important;
+          padding: 12px 14px !important;
+          margin-bottom: 10px;
+          background: rgba(255, 255, 255, 0.04);
+          border-radius: 12px;
+          border-bottom: none !important;
+        }
+        .train-main {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .left-time {
+          font-size: 13px;
+          color: #ffe95c;
+          font-weight: 700;
         }
         .line {
           font-weight: 800;
